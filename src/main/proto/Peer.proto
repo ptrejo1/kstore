@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.phoenix.kstore.grpc";
+option java_outer_classname = "PeerProto";
+
+package peer;
+
+service PeerServer {
+  rpc Ping (Empty) returns (Ack) {}
+  rpc PingRequest (PingReq) returns (Ack) {}
+  rpc StateSync (State) returns (State) {}
+}
+
+message Empty {}
+
+message Ack {
+  bool ack = 1;
+}
+
+message PingReq {
+  string peer_name = 1;
+  string peer_address = 2;
+}
+
+message State {
+  string replica_id = 1;
+  string peer_address = 2;
+  map<string, uint64> add_set = 3;
+  map<string, uint64> remove_set = 4;
+}
