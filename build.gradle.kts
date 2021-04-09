@@ -22,6 +22,7 @@ dependencies {
     implementation("io.grpc:grpc-netty-shaded:1.36.0")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+    implementation("net.openhft:zero-allocation-hashing:0.11")
 
     testImplementation(kotlin("test-junit5"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.0")
