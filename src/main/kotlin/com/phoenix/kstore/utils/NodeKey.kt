@@ -1,8 +1,32 @@
 package com.phoenix.kstore.utils
 
-data class NodeKey(val name: String, val host: Host) {
+/**
+ * Name of node, usually a uuid
+ */
+typealias NodeName = String
 
-    override fun toString(): String {
+/**
+ * String representation of [NodeKey]
+ */
+typealias NodeKeyRepr = String
+
+fun NodeKeyRepr.toNodeKey(): NodeKey {
+    val tokens =  this.split("=")
+    val nodeName = tokens[0]
+    val host = tokens[1]
+    val hostTokens = host.split(":")
+    val hostname = hostTokens[0]
+    val port = hostTokens[1].toInt()
+
+    return NodeKey(nodeName, Host(hostname, port))
+}
+
+/**
+ * Composed of [NodeName] and [Host]
+ */
+data class NodeKey(val name: NodeName, val host: Host) {
+
+    override fun toString(): NodeKeyRepr {
         return "$name=$host"
     }
 }

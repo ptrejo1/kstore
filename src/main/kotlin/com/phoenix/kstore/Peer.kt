@@ -6,7 +6,7 @@ import com.phoenix.kstore.utils.NodeKey
 import io.grpc.ManagedChannelBuilder
 import java.util.*
 
-class Peer(private val nodeKey: NodeKey) {
+class Peer(val nodeKey: NodeKey) {
 
     private val channel = ManagedChannelBuilder
         .forTarget(nodeKey.host.toString())
@@ -23,7 +23,7 @@ class Peer(private val nodeKey: NodeKey) {
     }
 
     suspend fun stateSync(state: LWWRegister, fromHost: Host): LWWRegister {
-        val incomingState =  peerClient.stateSync(state.replicaId, fromHost, state.addSet, state.removeSet)
+        val incomingState = peerClient.stateSync(state.nodeName, fromHost, state.addSet, state.removeSet)
         val register = LWWRegister(incomingState.replicaId)
         register.addSet = incomingState.addSetMap as LinkedHashMap<String, PackedHLCTimestamp>
         register.removeSet = incomingState.removeSetMap as LinkedHashMap<String, PackedHLCTimestamp>

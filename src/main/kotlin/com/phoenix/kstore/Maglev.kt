@@ -1,5 +1,6 @@
 package com.phoenix.kstore
 
+import com.phoenix.kstore.utils.NodeName
 import net.openhft.hashing.LongHashFunction.xx
 import kotlin.math.abs
 
@@ -7,7 +8,7 @@ import kotlin.math.abs
  * Maglev hashing implementation
  * More info here: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/44824.pdf
  */
-class Maglev(private val nodes: List<String>) {
+class Maglev(nodes: HashSet<NodeName>) {
 
     companion object {
 
@@ -15,14 +16,15 @@ class Maglev(private val nodes: List<String>) {
         private const val MAGLEV_SKIP_SEED = 0xdeadbeef
     }
 
-    private val n = nodes.count()
+    private val nodes: List<NodeName> = nodes.toList()
+    private val n = this.nodes.count()
     private val m = nextPrime(n * 100)
     private val table = populate()
 
     /**
      * Get node for key
      */
-    fun lookup(key: String): String {
+    fun lookup(key: NodeName): NodeName {
         val hashed = abs(xx(MAGLEV_OFFSET_SEED).hashChars(key))
         return nodes[table[(hashed % m).toInt()]]
     }

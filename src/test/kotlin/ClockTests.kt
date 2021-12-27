@@ -7,7 +7,7 @@ class ClockTests {
 
     @Test
     fun testClock() = runBlocking {
-        val m = Maglev(listOf("123b1h231=1123123", "abc123"))
+        val m = Maglev(hashSetOf("123b1h231=1123123", "abc123"))
         val oo = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
 
         for (o in oo) {

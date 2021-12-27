@@ -3,7 +3,7 @@ import com.google.protobuf.gradle.*
 
 
 plugins {
-    kotlin("jvm") version "1.4.30"
+    kotlin("jvm") version "1.5.0"
     id("application")
     id("idea")
     id("com.google.protobuf") version "0.8.15"
@@ -21,12 +21,13 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.4.30")
     implementation("io.grpc:grpc-netty-shaded:1.36.0")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
     implementation("net.openhft:zero-allocation-hashing:0.11")
 
     testImplementation(kotlin("test-junit5"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.6.0")
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 tasks.test {
@@ -57,4 +58,12 @@ protobuf {
             }
         }
     }
+}
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.kotlinOptions {
+    jvmTarget = "1.8"
+}
+val compileTestKotlin: KotlinCompile by tasks
+compileTestKotlin.kotlinOptions {
+    jvmTarget = "1.8"
 }

@@ -10,14 +10,19 @@ class HLCTimestamp : Comparable<HLCTimestamp> {
     val ts: Long
     val count: Int
 
+    companion object {
+
+        const val COUNT_MAX = 10000L
+    }
+
     constructor(ts: Long, count: Int) {
         this.ts = ts
         this.count = count
     }
 
     constructor(packed: PackedHLCTimestamp)  {
-        ts = packed / 10000
-        count = (packed % 10000).toInt()
+        ts = packed / COUNT_MAX
+        count = (packed % COUNT_MAX).toInt()
     }
 
     /**
@@ -26,7 +31,7 @@ class HLCTimestamp : Comparable<HLCTimestamp> {
      */
     fun pack(): PackedHLCTimestamp {
         if (count > 9999) throw RuntimeException("count exceeded precision max")
-        return (ts * 10000) + count
+        return (ts * COUNT_MAX) + count
     }
 
 
