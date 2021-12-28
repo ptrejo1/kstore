@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.math.min
 import kotlin.random.Random
 
 class Membership(val nodeKey: NodeKey) {
@@ -60,7 +61,7 @@ class Membership(val nodeKey: NodeKey) {
         )
     }
 
-    suspend fun stop() {
+    fun stop() {
         isStopped = true
         jobs.forEach { it.cancel() }
         logger.info("membership.stop")
@@ -85,6 +86,13 @@ class Membership(val nodeKey: NodeKey) {
         buildRouteTable()
 
         peer
+    }
+
+    private suspend fun removePeer(peer: Peer) = mutex.withLock {
+        clusterState.remove(peer.nodeKey)
+        if (peers.contains(peer.nodeKey.name))
+            peers.remove(peer.nodeKey.name)
+        buildRouteTable()
     }
 
     private suspend fun syncWithPeer(peer: Peer): LWWRegister {
@@ -112,7 +120,7 @@ class Membership(val nodeKey: NodeKey) {
 
     private suspend fun probeRandomPeer() {
         val peer = getRandomPeer() ?: return
-        logger.info("membership.probe ${peer.nodeKey}")
+        logger.info("membership.probe", peer.nodeKey)
 
         failureDetection(peer) { peer.ping() }
     }
@@ -128,8 +136,8 @@ class Membership(val nodeKey: NodeKey) {
 
         val key = filtered.random()
         choices.add(key)
-        val nodeKey = key.toNodeKey()
-        return getAddPeer(nodeKey.name, nodeKey.host)
+        val nk = key.toNodeKey()
+        return getAddPeer(nk.name, nk.host)
     }
 
     private fun eligiblePeers(): List<NodeKeyRepr> {
@@ -154,10 +162,96 @@ class Membership(val nodeKey: NodeKey) {
     }
 
     private suspend fun gossip() {
-        
+        val keys = getSubgroup(GOSSIP_SUBGROUP_SIZE)
+            .ifEmpty { return }
+
+        val gossipPeers = mutableListOf<Peer>()
+
+        keys.forEach {
+            val nk = it.toNodeKey()
+            val peer = getAddPeer(nk.name, nk.host)
+            gossipPeers.add(peer)
+        }
+
+        logger.info("membership.gossip", gossipPeers.map { it.nodeKey })
+
+        // TODO: Check this is correct!
+        gossipPeers.forEach {
+            val task = coroutineScope { async { syncWithPeer(it) } }
+            failureDetection(it) { task.await() }
+        }
     }
 
-    private suspend fun investigationLoop() {}
+    private suspend fun investigationLoop() {
+        while (!isStopped) {
+            val suspect = suspectQueue.poll() ?: break
+            investigate(suspect)
+        }
+    }
+
+    private suspend fun investigate(suspect: Peer) {
+        val keys = getSubgroup(FAILURE_DETECTION_SUBGROUP_SIZE)
+        val investigators = mutableListOf<Peer>()
+
+        keys.forEach {
+            val nk = it.toNodeKey()
+            val peer = getAddPeer(nk.name, nk.host)
+            investigators.add(peer)
+        }
+
+        logger.info(
+            "membership.investigate",
+            suspect.nodeKey,
+            investigators.map { it.nodeKey }
+        )
+
+        val results = hashMapOf<Peer, Boolean>()
+
+        // TODO: Check this is correct!
+        investigators.forEach {
+            val task = coroutineScope { async { it.pingReq(suspect) } }
+            results[it] = task.await()
+        }
+
+        for ((peer, ack) in results) {
+            if (!ack) continue
+            failureVetoed(suspect, peer)
+            return
+        }
+
+        failureConfirmed(suspect, investigators)
+    }
+
+    /** Another node was able to contact suspect */
+    private fun failureVetoed(suspect: Peer, vetoingPeer: Peer) {
+        logger.info("membership.failureVetoed", suspect.nodeKey, vetoingPeer.nodeKey)
+
+        val suspectNodeKey = suspect.nodeKey.toString()
+        if (suspects.contains(suspectNodeKey))
+            suspects.remove(suspectNodeKey)
+    }
+
+    private suspend fun failureConfirmed(suspect: Peer, confirmingPeers: List<Peer>) {
+        logger.info(
+            "membership.failureConfirmed",
+            suspect.nodeKey,
+            confirmingPeers.map { it.nodeKey }
+        )
+
+        removePeer(suspect)
+
+        val suspectNodeKey = suspect.nodeKey.toString()
+        if (suspects.contains(suspectNodeKey))
+            suspects.remove(suspectNodeKey)
+
+        gossip()
+    }
+
+    private fun getSubgroup(size: Int): List<NodeKeyRepr> {
+        val eligible = eligiblePeers().shuffled()
+        val k = min(size, eligible.size)
+        return eligible.subList(0, k)
+    }
 
     private suspend fun <R> failureDetection(peer: Peer, call: suspend () -> R) {
         try {
@@ -170,7 +264,7 @@ class Membership(val nodeKey: NodeKey) {
     private fun addSuspect(peer: Peer) {
         suspects.add(peer.nodeKey.toString())
         suspectQueue.add(peer)
-        logger.info("membership.addSuspect ${peer.nodeKey}")
+        logger.info("membership.addSuspect", peer.nodeKey)
     }
 
     private suspend fun delayWithInterval(interval: Long) {
