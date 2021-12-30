@@ -31,13 +31,24 @@ class Membership(val nodeKey: NodeKey) {
     private val mutex = Mutex()
     private var isStopped = false
     private var maglev = Maglev(hashSetOf())
-    private var jobs = listOf<Job>()
+    private var jobs: List<Job>
     private val jobsScope = CoroutineScope(Dispatchers.Default)
 
     init {
-        // TODO: Try avoid blocking
         runBlocking { clusterState.add(nodeKey) }
         buildRouteTable()
+
+        jobs = listOf(
+            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
+                failureDetectionLoop()
+            },
+            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
+                gossipLoop()
+            },
+            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
+                investigationLoop()
+            }
+        )
     }
 
     /** Initial state sync */
@@ -48,32 +59,35 @@ class Membership(val nodeKey: NodeKey) {
 
     suspend fun start() {
         logger.info("membership.start")
-        jobs = listOf(
-            jobsScope.launch(Dispatchers.Default) {
-                failureDetectionLoop()
-            },
-            jobsScope.launch(Dispatchers.Default) {
-                gossipLoop()
-            },
-            jobsScope.launch(Dispatchers.Default) {
-                investigationLoop()
-            }
-        )
+        jobs.forEach { it.join() }
     }
 
-    fun stop() {
+    fun stop() = runBlocking {
         isStopped = true
-        jobs.forEach { it.cancel() }
+        jobs.forEach { it.cancelAndJoin() }
         logger.info("membership.stop")
     }
 
-    private suspend fun getAddPeer(nodeName: NodeName, host: Host): Peer {
-        if (nodeName in peers) return peers[nodeName]!!
-        return addPeer(NodeKey(nodeName, host))
+    suspend fun pingRequest(peerNodeKey: NodeKey): Boolean {
+        val peer = getAddPeer(peerNodeKey.name, peerNodeKey.host)
+        return failureDetection(peer) { peer.ping() } ?: false
     }
 
+    suspend fun stateSync(incoming: LWWRegister, host: Host): LWWRegister {
+        getAddPeer(incoming.nodeName, host)
+
+        mutex.withLock {
+            clusterState.merge(incoming)
+            buildRouteTable()
+        }
+
+        return clusterState
+    }
+
+    private suspend fun getAddPeer(nodeName: NodeName, host: Host): Peer =
+        peers[nodeName] ?: addPeer(NodeKey(nodeName, host))
+
     private fun buildRouteTable() {
-        // TODO: Avoid splitting on =
         val nodeNames = clusterState.state
             .map { it.first.toNodeKey().name }
         maglev = Maglev(nodeNames.toHashSet())
@@ -98,17 +112,6 @@ class Membership(val nodeKey: NodeKey) {
     private suspend fun syncWithPeer(peer: Peer): LWWRegister {
         val peerMergedState = peer.stateSync(clusterState, nodeKey.host)
         return stateSync(peerMergedState, peer.nodeKey.host)
-    }
-
-    private suspend fun stateSync(incoming: LWWRegister, host: Host): LWWRegister {
-        getAddPeer(incoming.nodeName, host)
-
-        mutex.withLock {
-            clusterState.merge(incoming)
-            buildRouteTable()
-        }
-
-        return clusterState
     }
 
     private suspend fun failureDetectionLoop() {
@@ -253,11 +256,12 @@ class Membership(val nodeKey: NodeKey) {
         return eligible.subList(0, k)
     }
 
-    private suspend fun <R> failureDetection(peer: Peer, call: suspend () -> R) {
-        try {
+    private suspend fun <R> failureDetection(peer: Peer, call: suspend () -> R): R? {
+        return try {
             call()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             addSuspect(peer)
+            null
         }
     }
 

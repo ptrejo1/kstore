@@ -1,54 +1,66 @@
 package com.phoenix.kstore.servers
 
+import com.phoenix.kstore.LWWRegister
+import com.phoenix.kstore.Node
 import com.phoenix.kstore.grpc.*
+import com.phoenix.kstore.toRegisterSet
+import com.phoenix.kstore.toSetElements
+import com.phoenix.kstore.utils.Host
+import com.phoenix.kstore.utils.NodeKey
 import io.grpc.Server
 import io.grpc.ServerBuilder
+import java.util.concurrent.TimeUnit
 
-class PeerServer(private val port: Int) {
+/** Server for p2p communication */
+class PeerServer(private val port: Int, node: Node) {
 
     val server: Server = ServerBuilder
         .forPort(port)
-        .addService(PeerService())
+        .addService(PeerService(node))
         .build()
 
     fun start() {
         server.start()
         println("Server started, listening on $port")
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                println("*** shutting down gRPC server since JVM is shutting down")
-                this@PeerServer.stop()
-                println("*** server shut down")
-            }
-        )
-    }
-
-    private fun stop() {
-        server.shutdown()
-    }
-
-    fun blockUntilShutdown() {
         server.awaitTermination()
     }
 
-    private class PeerService : PeerServerGrpcKt.PeerServerCoroutineImplBase() {
+    fun stop() {
+        println("*** shutting down gRPC server")
+        server.shutdown().awaitTermination(10, TimeUnit.SECONDS)
+        println("*** server shut down")
+    }
+}
 
-        override suspend fun ping(request: Empty): Ack = Ack
+private class PeerService(private val node: Node): PeerServerGrpcKt.PeerServerCoroutineImplBase() {
+
+    override suspend fun ping(request: Empty): Ack = Ack
+        .newBuilder()
+        .setAck(true)
+        .build()
+
+    override suspend fun pingRequest(request: PingReq): Ack {
+        val nodeKey = NodeKey(request.peerName, request.peerHost)
+        val ack = node.membership.pingRequest(nodeKey)
+
+        return Ack
             .newBuilder()
-            .setAck(true)
+            .setAck(ack)
             .build()
+    }
 
-        override suspend fun pingRequest(request: PingReq): Ack = Ack
-            .newBuilder()
-            .setAck(true)
-            .build()
+    override suspend fun stateSync(request: State): State {
+        val incoming = LWWRegister(request.nodeName)
+        incoming.addSet = request.addSetList.toRegisterSet()
+        incoming.removeSet = request.removeSetList.toRegisterSet()
+        val state = node.membership.stateSync(incoming, Host(request.peerHost))
 
-        override suspend fun stateSync(request: State): State = State
+        return State
             .newBuilder()
-            .setReplicaId("")
-            .setPeerAddress("")
-            .putAllAddSet(mapOf())
-            .putAllRemoveSet(mapOf())
+            .setNodeName(node.name)
+            .setPeerHost(node.p2pHost.toString())
+            .addAllAddSet(state.addSet.toSetElements())
+            .addAllRemoveSet(state.removeSet.toSetElements())
             .build()
     }
 }

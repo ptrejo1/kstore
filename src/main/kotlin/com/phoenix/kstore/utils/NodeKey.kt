@@ -13,18 +13,28 @@ typealias NodeKeyRepr = String
 fun NodeKeyRepr.toNodeKey(): NodeKey {
     val tokens =  this.split("=")
     val nodeName = tokens[0]
-    val host = tokens[1]
-    val hostTokens = host.split(":")
-    val hostname = hostTokens[0]
-    val port = hostTokens[1].toInt()
+    val host = Host(tokens[1])
 
-    return NodeKey(nodeName, Host(hostname, port))
+    return NodeKey(nodeName, host)
 }
 
 /**
  * Composed of [NodeName] and [Host]
  */
-data class NodeKey(val name: NodeName, val host: Host) {
+class NodeKey {
+
+    val name: NodeName
+    val host: Host
+
+    constructor(name: NodeName, host: Host) {
+        this.name = name
+        this.host = host
+    }
+
+    constructor(name: NodeName, host: String) {
+        this.name = name
+        this.host = Host(host)
+    }
 
     override fun toString(): NodeKeyRepr {
         return "$name=$host"

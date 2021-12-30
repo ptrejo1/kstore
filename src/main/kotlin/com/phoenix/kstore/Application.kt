@@ -1,5 +1,8 @@
 package com.phoenix.kstore
 
+import kotlinx.coroutines.runBlocking
+
 fun main() {
-    println("Hello World!")
+    val server = Server()
+    runBlocking { server.start() }
 }

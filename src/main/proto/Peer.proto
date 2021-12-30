@@ -12,6 +12,11 @@ service PeerServer {
   rpc StateSync (State) returns (State) {}
 }
 
+message SetElement {
+  string key = 1;
+  uint64 packed_ts = 2;
+}
+
 message Empty {}
 
 message Ack {
@@ -20,12 +25,12 @@ message Ack {
 
 message PingReq {
   string peer_name = 1;
-  string peer_address = 2;
+  string peer_host = 2;
 }
 
 message State {
-  string replica_id = 1;
-  string peer_address = 2;
-  map<string, uint64> add_set = 3;
-  map<string, uint64> remove_set = 4;
+  string node_name = 1;
+  string peer_host = 2;
+  repeated SetElement add_set = 3;
+  repeated SetElement remove_set = 4;
 }

@@ -1,11 +1,11 @@
 package com.phoenix.kstore
 
+import com.phoenix.kstore.grpc.SetElement
 import com.phoenix.kstore.utils.NodeKey
 import com.phoenix.kstore.utils.NodeKeyRepr
 import com.phoenix.kstore.utils.NodeName
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.*
 
 class LWWRegister(val nodeName: NodeName) {
 
@@ -15,7 +15,9 @@ class LWWRegister(val nodeName: NodeName) {
     val state: List<Pair<NodeKeyRepr, PackedHLCTimestamp>>
         get() {
             return addSet
-                .filter { !removeSet.containsKey(it.key) || removeSet[it.key]!! <= it.value }
+                .filter {
+                    !removeSet.containsKey(it.key) || removeSet[it.key]!! <= it.value
+                }
                 .map { it.key to it.value }
         }
 
@@ -58,3 +60,14 @@ class LWWRegister(val nodeName: NodeName) {
         }
     }
 }
+
+fun List<SetElement>.toRegisterSet(): LinkedHashMap<NodeKeyRepr, PackedHLCTimestamp> =
+    linkedMapOf(*this.map { it.key to it.packedTs }.toTypedArray())
+
+fun LinkedHashMap<NodeKeyRepr, PackedHLCTimestamp>.toSetElements(): List<SetElement> =
+    this.map {
+        SetElement.newBuilder()
+            .setKey(it.key)
+            .setPackedTs(it.value)
+            .build()
+    }
