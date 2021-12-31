@@ -9,6 +9,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.min
 import kotlin.random.Random
 
+suspend fun <T> inScopeAsync(block: suspend CoroutineScope.() -> T): Deferred<T> =
+    coroutineScope { async { block() } }
+
 class Membership(val nodeKey: NodeKey) {
 
     companion object {
@@ -70,7 +73,8 @@ class Membership(val nodeKey: NodeKey) {
 
     suspend fun pingRequest(peerNodeKey: NodeKey): Boolean {
         val peer = getAddPeer(peerNodeKey.name, peerNodeKey.host)
-        return failureDetection(peer) { peer.ping() } ?: false
+        val deferred = inScopeAsync { peer.ping() }
+        return failureDetection(peer, deferred) ?: false
     }
 
     suspend fun stateSync(incoming: LWWRegister, host: Host): LWWRegister {
@@ -109,6 +113,7 @@ class Membership(val nodeKey: NodeKey) {
         buildRouteTable()
     }
 
+    /** @throws Exception if fails to reach peer */
     private suspend fun syncWithPeer(peer: Peer): LWWRegister {
         val peerMergedState = peer.stateSync(clusterState, nodeKey.host)
         return stateSync(peerMergedState, peer.nodeKey.host)
@@ -124,13 +129,16 @@ class Membership(val nodeKey: NodeKey) {
     private suspend fun probeRandomPeer() {
         val peer = getRandomPeer() ?: return
         logger.info("probe", peer.nodeKey)
-        failureDetection(peer) { peer.ping() }
+
+        val deferred = inScopeAsync { peer.ping() }
+        failureDetection(peer, deferred)
     }
 
     private suspend fun getRandomPeer(): Peer? {
         val eligiblePeers = eligiblePeers()
 
-        if (choices.size >= eligiblePeers.size) choices = hashSetOf()
+        if (choices.size >= eligiblePeers.size)
+            choices = hashSetOf()
 
         val filtered = eligiblePeers
             .filterNot { choices.contains(it) }
@@ -143,7 +151,7 @@ class Membership(val nodeKey: NodeKey) {
     }
 
     private fun eligiblePeers(): List<NodeKeyRepr> {
-        val allPeers = clusterState.state.associateBy({ it.first }, { it.second })
+        val allPeers = clusterState.state.toMap()
         val thisKey = nodeKey.toString()
         // Shift over by COUNT_MAX to allow HLCTimestamp comparison
         val now = System.currentTimeMillis() * HLCTimestamp.COUNT_MAX
@@ -166,22 +174,17 @@ class Membership(val nodeKey: NodeKey) {
     private suspend fun gossip() {
         val keys = getSubgroup(GOSSIP_SUBGROUP_SIZE)
             .ifEmpty { return }
-
-        val gossipPeers = mutableListOf<Peer>()
-
-        keys.forEach {
+        val gossipPeers = keys.map {
             val nk = it.toNodeKey()
-            val peer = getAddPeer(nk.name, nk.host)
-            gossipPeers.add(peer)
+            getAddPeer(nk.name, nk.host)
         }
 
         logger.info("gossip", gossipPeers.map { it.nodeKey })
 
-        // TODO: Check this is correct!
-        gossipPeers.forEach {
-            val task = coroutineScope { async { syncWithPeer(it) } }
-            failureDetection(it) { task.await() }
+        val results = gossipPeers.associateWith {
+            inScopeAsync { syncWithPeer(it) }
         }
+        results.map { failureDetection(it.key, it.value) }
     }
 
     private suspend fun investigationLoop() {
@@ -193,12 +196,9 @@ class Membership(val nodeKey: NodeKey) {
 
     private suspend fun investigate(suspect: Peer) {
         val keys = getSubgroup(FAILURE_DETECTION_SUBGROUP_SIZE)
-        val investigators = mutableListOf<Peer>()
-
-        keys.forEach {
+        val investigators = keys.map {
             val nk = it.toNodeKey()
-            val peer = getAddPeer(nk.name, nk.host)
-            investigators.add(peer)
+            getAddPeer(nk.name, nk.host)
         }
 
         logger.info(
@@ -207,15 +207,12 @@ class Membership(val nodeKey: NodeKey) {
             investigators.map { it.nodeKey }
         )
 
-        val results = hashMapOf<Peer, Boolean>()
+        val results = investigators
+            .map { inScopeAsync { it.pingRequest(suspect) } }
+            .map { runCatching { it.await() } }
+            .map { it.getOrElse { false } }
 
-        // TODO: Check this is correct!
-        investigators.forEach {
-            val task = coroutineScope { async { it.pingReq(suspect) } }
-            results[it] = task.await()
-        }
-
-        for ((peer, ack) in results) {
+        for ((peer, ack) in investigators.zip(results)) {
             if (!ack) continue
             failureVetoed(suspect, peer)
             return
@@ -255,13 +252,11 @@ class Membership(val nodeKey: NodeKey) {
         return eligible.subList(0, k)
     }
 
-    private suspend fun <R> failureDetection(peer: Peer, call: suspend () -> R): R? {
-        return try {
-            call()
-        } catch (_: Exception) {
-            addSuspect(peer)
-            null
-        }
+    private suspend fun <R> failureDetection(peer: Peer, deferred: Deferred<R>): R? {
+        runCatching { deferred.await() }
+            .onSuccess { return it }
+            .onFailure { addSuspect(peer) }
+        return null
     }
 
     private fun addSuspect(peer: Peer) {

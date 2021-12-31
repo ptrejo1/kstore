@@ -17,11 +17,16 @@ class PeerClient(private val channel: ManagedChannel) : Closeable {
     private val stub: PeerServerGrpcKt.PeerServerCoroutineStub =
         PeerServerGrpcKt.PeerServerCoroutineStub(channel)
 
+    /** @throws Exception if fails to reach peer */
     suspend fun ping(): Ack {
-        val empty = Empty.newBuilder().build()
+        val empty = Empty
+            .newBuilder()
+            .build()
+
         return stub.ping(empty)
     }
 
+    /** @throws Exception if fails to reach peer */
     suspend fun pingRequest(nodeKey: NodeKey): Ack {
         val pingReq = PingReq.newBuilder()
             .setPeerName(nodeKey.name)
@@ -31,6 +36,7 @@ class PeerClient(private val channel: ManagedChannel) : Closeable {
         return stub.pingRequest(pingReq)
     }
 
+    /** @throws Exception if fails to reach peer */
     suspend fun stateSync(
         nodeName: NodeName,
         host: Host,

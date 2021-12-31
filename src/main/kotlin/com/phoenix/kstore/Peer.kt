@@ -13,13 +13,14 @@ class Peer(val nodeKey: NodeKey) {
         .build()
     private val peerClient = PeerClient(channel)
 
-    suspend fun ping(): Boolean {
-        return peerClient.ping().ack
-    }
+    /** @throws Exception if fails to reach peer */
+    suspend fun ping(): Boolean = peerClient.ping().ack
 
-    suspend fun pingReq(peer: Peer): Boolean =
+    /** @throws Exception if fails to reach peer */
+    suspend fun pingRequest(peer: Peer): Boolean =
         peerClient.pingRequest(peer.nodeKey).ack
 
+    /** @throws Exception if fails to reach peer */
     suspend fun stateSync(state: LWWRegister, fromHost: Host): LWWRegister {
         val incomingState = peerClient.stateSync(
             state.nodeName,
