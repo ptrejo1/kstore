@@ -57,15 +57,15 @@ class Membership(val nodeKey: NodeKey) {
         syncWithPeer(peer)
     }
 
-    suspend fun start() {
-        logger.info("membership.start")
-        jobs.forEach { it.join() }
+    fun start() {
+        logger.info("start")
+        jobs.forEach { it.start() }
     }
 
     fun stop() = runBlocking {
         isStopped = true
         jobs.forEach { it.cancelAndJoin() }
-        logger.info("membership.stop")
+        logger.info("stop")
     }
 
     suspend fun pingRequest(peerNodeKey: NodeKey): Boolean {
@@ -123,8 +123,7 @@ class Membership(val nodeKey: NodeKey) {
 
     private suspend fun probeRandomPeer() {
         val peer = getRandomPeer() ?: return
-        logger.info("membership.probe", peer.nodeKey)
-
+        logger.info("probe", peer.nodeKey)
         failureDetection(peer) { peer.ping() }
     }
 
@@ -176,7 +175,7 @@ class Membership(val nodeKey: NodeKey) {
             gossipPeers.add(peer)
         }
 
-        logger.info("membership.gossip", gossipPeers.map { it.nodeKey })
+        logger.info("gossip", gossipPeers.map { it.nodeKey })
 
         // TODO: Check this is correct!
         gossipPeers.forEach {
@@ -203,7 +202,7 @@ class Membership(val nodeKey: NodeKey) {
         }
 
         logger.info(
-            "membership.investigate",
+            "investigate",
             suspect.nodeKey,
             investigators.map { it.nodeKey }
         )
@@ -227,7 +226,7 @@ class Membership(val nodeKey: NodeKey) {
 
     /** Another node was able to contact suspect */
     private fun failureVetoed(suspect: Peer, vetoingPeer: Peer) {
-        logger.info("membership.failureVetoed", suspect.nodeKey, vetoingPeer.nodeKey)
+        logger.info("failureVetoed", suspect.nodeKey, vetoingPeer.nodeKey)
 
         val suspectNodeKey = suspect.nodeKey.toString()
         if (suspects.contains(suspectNodeKey))
@@ -236,7 +235,7 @@ class Membership(val nodeKey: NodeKey) {
 
     private suspend fun failureConfirmed(suspect: Peer, confirmingPeers: List<Peer>) {
         logger.info(
-            "membership.failureConfirmed",
+            "failureConfirmed",
             suspect.nodeKey,
             confirmingPeers.map { it.nodeKey }
         )
@@ -268,7 +267,7 @@ class Membership(val nodeKey: NodeKey) {
     private fun addSuspect(peer: Peer) {
         suspects.add(peer.nodeKey.toString())
         suspectQueue.add(peer)
-        logger.info("membership.addSuspect", peer.nodeKey)
+        logger.info("addSuspect", peer.nodeKey)
     }
 
     private suspend fun delayWithInterval(interval: Long) {

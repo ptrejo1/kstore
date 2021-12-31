@@ -7,12 +7,17 @@ import com.phoenix.kstore.toRegisterSet
 import com.phoenix.kstore.toSetElements
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
+import com.phoenix.kstore.utils.getLogger
 import io.grpc.Server
 import io.grpc.ServerBuilder
 import java.util.concurrent.TimeUnit
 
 /** Server for p2p communication */
 class PeerServer(private val port: Int, node: Node) {
+
+    companion object {
+        val logger by getLogger()
+    }
 
     val server: Server = ServerBuilder
         .forPort(port)
@@ -21,14 +26,14 @@ class PeerServer(private val port: Int, node: Node) {
 
     fun start() {
         server.start()
-        println("Server started, listening on $port")
+        logger.info("server started")
         server.awaitTermination()
     }
 
     fun stop() {
-        println("*** shutting down gRPC server")
+        println("shutting down...")
         server.shutdown().awaitTermination(10, TimeUnit.SECONDS)
-        println("*** server shut down")
+        println("server shut down")
     }
 }
 

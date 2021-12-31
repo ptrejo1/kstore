@@ -50,7 +50,7 @@ class Server(
         peerServer.stop()
     }
 
-    private suspend fun startMembership() = node.membership.start()
+    private fun startMembership() = node.membership.start()
 
     private fun startPeerServer() = peerServer.start()
 }
