@@ -34,4 +34,8 @@ class Peer(val nodeKey: NodeKey) {
 
         return Result.success(register)
     }
+
+    override fun toString(): String {
+        return nodeKey.toString()
+    }
 }

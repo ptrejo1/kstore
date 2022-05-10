@@ -2,8 +2,8 @@ package com.phoenix.kstore.utils
 
 class Host {
 
-    val hostname: String
-    val port: Int
+    private val hostname: String
+    private val port: Int
 
     constructor(hostname: String, port: Int) {
         this.hostname = hostname

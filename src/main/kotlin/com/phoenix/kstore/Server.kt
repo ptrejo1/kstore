@@ -16,12 +16,12 @@ class Server(
     val joinNodeKeyRepr: NodeKeyRepr? = null
 ) {
 
-    val clientHost = Host(hostname, port)
-    val p2pHost = Host(peerToPeerHostname, peerToPeerPort)
-    val node = Node(clientHost, p2pHost, nodeName)
-    val peerServer = PeerServer(peerToPeerPort, node)
+    private val clientHost = Host(hostname, port)
+    private val p2pHost = Host(peerToPeerHostname, peerToPeerPort)
+    private val node = Node(clientHost, p2pHost, nodeName)
+    private val peerServer = PeerServer(peerToPeerPort, node)
     private val jobsScope = CoroutineScope(Dispatchers.Default)
-    val jobs: List<Job>
+    private val jobs: List<Job>
 
     init {
         jobs = listOf(

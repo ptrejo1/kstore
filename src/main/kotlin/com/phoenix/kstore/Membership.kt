@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.min
 import kotlin.random.Random
 
-class Membership(val nodeKey: NodeKey) {
+class Membership(private val nodeKey: NodeKey) {
 
     companion object {
         const val FAILURE_DETECTION_INTERVAL_MS = 500L
@@ -22,10 +22,10 @@ class Membership(val nodeKey: NodeKey) {
         private val logger by getLogger()
     }
 
-    val peers = HashMap<NodeName, Peer>()
-    val suspects = HashSet<NodeKeyRepr>()
-    val suspectQueue = ConcurrentLinkedQueue<Peer>()
-    val clusterState = LWWRegister(nodeKey.name)
+    private val peers = HashMap<NodeName, Peer>()
+    private val suspects = HashSet<NodeKeyRepr>()
+    private val suspectQueue = ConcurrentLinkedQueue<Peer>()
+    private val clusterState = LWWRegister(nodeKey.name)
 
     private var choices = HashSet<NodeKeyRepr>()
     private val mutex = Mutex()
@@ -58,14 +58,14 @@ class Membership(val nodeKey: NodeKey) {
     }
 
     fun start() {
-        logger.info("start")
+        logger.info("Membership Start")
         jobs.forEach { it.start() }
     }
 
     fun stop() = runBlocking {
         isStopped = true
         jobs.forEach { it.cancelAndJoin() }
-        logger.info("stop")
+        logger.info("Membership Stop")
     }
 
     suspend fun pingRequest(peerNodeKey: NodeKey): Boolean {
@@ -127,7 +127,7 @@ class Membership(val nodeKey: NodeKey) {
 
     private suspend fun probeRandomPeer() {
         val peer = getRandomPeer() ?: return
-        logger.info("probe", peer.nodeKey)
+        logger.info("probe - ${peer.nodeKey}")
         failureDetection(peer, peer.ping())
     }
 
@@ -176,7 +176,7 @@ class Membership(val nodeKey: NodeKey) {
             getAddPeer(nk.name, nk.host)
         }
 
-        logger.info("gossip", gossipPeers.map { it.nodeKey })
+        logger.info("gossip - $gossipPeers")
 
         val results = gossipPeers.associateWith { syncWithPeer(it) }
         results.map { failureDetection(it.key, it.value) }
@@ -196,11 +196,7 @@ class Membership(val nodeKey: NodeKey) {
             getAddPeer(nk.name, nk.host)
         }
 
-        logger.info(
-            "investigate",
-            suspect.nodeKey,
-            investigators.map { it.nodeKey }
-        )
+        logger.info("investigate - suspect: ${suspect.nodeKey} - $investigators")
 
         val results = investigators
             .map { it.pingRequest(suspect) }
@@ -220,7 +216,7 @@ class Membership(val nodeKey: NodeKey) {
 
     /** Another node was able to contact suspect */
     private fun failureVetoed(suspect: Peer, vetoingPeer: Peer) {
-        logger.info("failureVetoed", suspect.nodeKey, vetoingPeer.nodeKey)
+        logger.info("failureVetoed - suspect: ${suspect.nodeKey} - ${vetoingPeer.nodeKey}")
 
         val suspectNodeKey = suspect.nodeKey.toString()
         if (suspects.contains(suspectNodeKey))
@@ -228,11 +224,7 @@ class Membership(val nodeKey: NodeKey) {
     }
 
     private suspend fun failureConfirmed(suspect: Peer, confirmingPeers: List<Peer>) {
-        logger.info(
-            "failureConfirmed",
-            suspect.nodeKey,
-            confirmingPeers.map { it.nodeKey }
-        )
+        logger.info("failureConfirmed - suspect: $suspect.nodeKey - $confirmingPeers")
 
         removePeer(suspect)
 
@@ -259,7 +251,7 @@ class Membership(val nodeKey: NodeKey) {
     private fun addSuspect(peer: Peer) {
         suspects.add(peer.nodeKey.toString())
         suspectQueue.add(peer)
-        logger.info("addSuspect", peer.nodeKey)
+        logger.info("addSuspect ${peer.nodeKey}")
     }
 
     private suspend fun delayWithInterval(interval: Long) {

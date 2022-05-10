@@ -13,10 +13,10 @@ import io.grpc.ServerBuilder
 import java.util.concurrent.TimeUnit
 
 /** Server for p2p communication */
-class PeerServer(private val port: Int, node: Node) {
+class PeerServer(port: Int, node: Node) {
 
     companion object {
-        val logger by getLogger()
+        private val logger by getLogger()
     }
 
     val server: Server = ServerBuilder
@@ -26,14 +26,14 @@ class PeerServer(private val port: Int, node: Node) {
 
     fun start() {
         server.start()
-        logger.info("server started")
+        logger.info("PeerServer Started")
         server.awaitTermination()
     }
 
     fun stop() {
-        println("shutting down...")
+        logger.info("PeerServer shutting down...")
         server.shutdown().awaitTermination(10, TimeUnit.SECONDS)
-        println("server shut down")
+        logger.info("PeerServer shut down")
     }
 }
 
