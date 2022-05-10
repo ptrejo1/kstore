@@ -9,9 +9,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.min
 import kotlin.random.Random
 
-suspend fun <T> inScopeAsync(block: suspend CoroutineScope.() -> T): Deferred<T> =
-    coroutineScope { async { block() } }
-
 class Membership(val nodeKey: NodeKey) {
 
     companion object {
@@ -22,7 +19,7 @@ class Membership(val nodeKey: NodeKey) {
         const val JITTER_MS = 10L
         const val STARTUP_GRACE_PERIOD_SECONDS = 2
 
-        val logger by getLogger()
+        private val logger by getLogger()
     }
 
     val peers = HashMap<NodeName, Peer>()
@@ -73,8 +70,8 @@ class Membership(val nodeKey: NodeKey) {
 
     suspend fun pingRequest(peerNodeKey: NodeKey): Boolean {
         val peer = getAddPeer(peerNodeKey.name, peerNodeKey.host)
-        val deferred = inScopeAsync { peer.ping() }
-        return failureDetection(peer, deferred) ?: false
+        val ack = failureDetection(peer, peer.ping())
+        return ack?.ack ?: false
     }
 
     suspend fun stateSync(incoming: LWWRegister, host: Host): LWWRegister {
@@ -113,10 +110,12 @@ class Membership(val nodeKey: NodeKey) {
         buildRouteTable()
     }
 
-    /** @throws Exception if fails to reach peer */
-    private suspend fun syncWithPeer(peer: Peer): LWWRegister {
-        val peerMergedState = peer.stateSync(clusterState, nodeKey.host)
-        return stateSync(peerMergedState, peer.nodeKey.host)
+    private suspend fun syncWithPeer(peer: Peer): Result<LWWRegister> {
+        val peerMergedState = peer
+            .stateSync(clusterState, nodeKey.host)
+            .getOrElse { return Result.failure(it) }
+
+        return Result.success(stateSync(peerMergedState, peer.nodeKey.host))
     }
 
     private suspend fun failureDetectionLoop() {
@@ -129,9 +128,7 @@ class Membership(val nodeKey: NodeKey) {
     private suspend fun probeRandomPeer() {
         val peer = getRandomPeer() ?: return
         logger.info("probe", peer.nodeKey)
-
-        val deferred = inScopeAsync { peer.ping() }
-        failureDetection(peer, deferred)
+        failureDetection(peer, peer.ping())
     }
 
     private suspend fun getRandomPeer(): Peer? {
@@ -181,15 +178,13 @@ class Membership(val nodeKey: NodeKey) {
 
         logger.info("gossip", gossipPeers.map { it.nodeKey })
 
-        val results = gossipPeers.associateWith {
-            inScopeAsync { syncWithPeer(it) }
-        }
+        val results = gossipPeers.associateWith { syncWithPeer(it) }
         results.map { failureDetection(it.key, it.value) }
     }
 
     private suspend fun investigationLoop() {
         while (!isStopped) {
-            val suspect = suspectQueue.poll() ?: break
+            val suspect = suspectQueue.poll() ?: continue
             investigate(suspect)
         }
     }
@@ -208,9 +203,11 @@ class Membership(val nodeKey: NodeKey) {
         )
 
         val results = investigators
-            .map { inScopeAsync { it.pingRequest(suspect) } }
-            .map { runCatching { it.await() } }
-            .map { it.getOrElse { false } }
+            .map { it.pingRequest(suspect) }
+            .map {
+                val ack = it.getOrNull()
+                ack?.ack ?: false
+            }
 
         for ((peer, ack) in investigators.zip(results)) {
             if (!ack) continue
@@ -252,8 +249,8 @@ class Membership(val nodeKey: NodeKey) {
         return eligible.subList(0, k)
     }
 
-    private suspend fun <R> failureDetection(peer: Peer, deferred: Deferred<R>): R? {
-        runCatching { deferred.await() }
+    private fun <R> failureDetection(peer: Peer, result: Result<R>): R? {
+        result
             .onSuccess { return it }
             .onFailure { addSuspect(peer) }
         return null

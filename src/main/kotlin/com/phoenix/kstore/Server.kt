@@ -13,7 +13,7 @@ class Server(
     val peerToPeerHostname: String = "127.0.0.1",
     val peerToPeerPort: Int = 4001,
     val nodeName: String = UUID.randomUUID().toString(),
-    val joinNodeKey: NodeKeyRepr? = null
+    val joinNodeKeyRepr: NodeKeyRepr? = null
 ) {
 
     val clientHost = Host(hostname, port)
@@ -39,8 +39,8 @@ class Server(
             stop()
         })
 
-        if (joinNodeKey != null)
-            node.bootstrap(joinNodeKey.toNodeKey())
+        if (joinNodeKeyRepr != null)
+            node.bootstrap(joinNodeKeyRepr.toNodeKey())
 
         jobs.forEach { it.join() }
     }

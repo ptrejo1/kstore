@@ -1,5 +1,6 @@
 package com.phoenix.kstore
 
+import com.phoenix.kstore.grpc.Ack
 import com.phoenix.kstore.servers.PeerClient
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
@@ -13,25 +14,24 @@ class Peer(val nodeKey: NodeKey) {
         .build()
     private val peerClient = PeerClient(channel)
 
-    /** @throws Exception if fails to reach peer */
-    suspend fun ping(): Boolean = peerClient.ping().ack
+    suspend fun ping(): Result<Ack> = peerClient.ping()
 
-    /** @throws Exception if fails to reach peer */
-    suspend fun pingRequest(peer: Peer): Boolean =
-        peerClient.pingRequest(peer.nodeKey).ack
+    suspend fun pingRequest(peer: Peer): Result<Ack> =
+        peerClient.pingRequest(peer.nodeKey)
 
-    /** @throws Exception if fails to reach peer */
-    suspend fun stateSync(state: LWWRegister, fromHost: Host): LWWRegister {
-        val incomingState = peerClient.stateSync(
+    suspend fun stateSync(state: LWWRegister, fromHost: Host): Result<LWWRegister> {
+        val result = peerClient.stateSync(
             state.nodeName,
             fromHost,
             state.addSet,
             state.removeSet
         )
+        val incomingState = result.getOrElse { return Result.failure(it) }
+
         val register = LWWRegister(incomingState.nodeName)
         register.addSet = incomingState.addSetList.toRegisterSet()
         register.removeSet = incomingState.removeSetList.toRegisterSet()
 
-        return register
+        return Result.success(register)
     }
 }

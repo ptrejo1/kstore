@@ -3,46 +3,54 @@ package com.phoenix.kstore.servers
 import com.phoenix.kstore.PackedHLCTimestamp
 import com.phoenix.kstore.grpc.*
 import com.phoenix.kstore.toSetElements
-import com.phoenix.kstore.utils.Host
-import com.phoenix.kstore.utils.NodeKey
-import com.phoenix.kstore.utils.NodeKeyRepr
-import com.phoenix.kstore.utils.NodeName
+import com.phoenix.kstore.utils.*
 import io.grpc.ManagedChannel
+import io.grpc.StatusException
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
 
 /** Client for communicating with [PeerServer] */
 class PeerClient(private val channel: ManagedChannel) : Closeable {
 
+    companion object {
+        private val logger by getLogger()
+    }
+
+    private suspend fun <T> execute(block: suspend () -> T): Result<T> {
+        return try {
+            Result.success(block())
+        } catch (e: StatusException) {
+            logger.error(e.stackTraceToString())
+            Result.failure(e)
+        }
+    }
+
     private val stub: PeerServerGrpcKt.PeerServerCoroutineStub =
         PeerServerGrpcKt.PeerServerCoroutineStub(channel)
 
-    /** @throws Exception if fails to reach peer */
-    suspend fun ping(): Ack {
+    suspend fun ping(): Result<Ack> {
         val empty = Empty
             .newBuilder()
             .build()
 
-        return stub.ping(empty)
+        return execute { stub.ping(empty) }
     }
 
-    /** @throws Exception if fails to reach peer */
-    suspend fun pingRequest(nodeKey: NodeKey): Ack {
+    suspend fun pingRequest(nodeKey: NodeKey): Result<Ack> {
         val pingReq = PingReq.newBuilder()
             .setPeerName(nodeKey.name)
             .setPeerHost(nodeKey.host.toString())
             .build()
 
-        return stub.pingRequest(pingReq)
+        return execute { stub.pingRequest(pingReq) }
     }
 
-    /** @throws Exception if fails to reach peer */
     suspend fun stateSync(
         nodeName: NodeName,
         host: Host,
         addSet: LinkedHashMap<NodeKeyRepr, PackedHLCTimestamp>,
         removeSet: LinkedHashMap<NodeKeyRepr, PackedHLCTimestamp>
-    ): State {
+    ): Result<State> {
         val state = State.newBuilder()
             .setNodeName(nodeName)
             .setPeerHost(host.toString())
@@ -50,7 +58,7 @@ class PeerClient(private val channel: ManagedChannel) : Closeable {
             .addAllRemoveSet(removeSet.toSetElements())
             .build()
 
-        return stub.stateSync(state)
+        return execute { stub.stateSync(state) }
     }
 
     override fun close() {
