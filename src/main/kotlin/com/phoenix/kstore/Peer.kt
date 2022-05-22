@@ -14,6 +14,8 @@ class Peer(val nodeKey: NodeKey) {
         .build()
     private val peerClient = PeerClient(channel)
 
+    val name = nodeKey.name
+
     suspend fun ping(): Result<Ack> = peerClient.ping()
 
     suspend fun pingRequest(peer: Peer): Result<Ack> =

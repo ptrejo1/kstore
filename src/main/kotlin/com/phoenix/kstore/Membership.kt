@@ -53,7 +53,8 @@ class Membership(private val nodeKey: NodeKey) {
 
     /** Initial state sync */
     suspend fun bootstrap(peerNodeKey: NodeKey) {
-        val peer = addPeer(peerNodeKey)
+        val peer = Peer(peerNodeKey)
+        addPeer(peer)
         syncWithPeer(peer)
     }
 
@@ -69,13 +70,13 @@ class Membership(private val nodeKey: NodeKey) {
     }
 
     suspend fun pingRequest(peerNodeKey: NodeKey): Boolean {
-        val peer = getAddPeer(peerNodeKey.name, peerNodeKey.host)
+        val peer = peers[peerNodeKey.name] ?: return false
         val ack = failureDetection(peer, peer.ping())
         return ack?.ack ?: false
     }
 
     suspend fun stateSync(incoming: LWWRegister, host: Host): LWWRegister {
-        getAddPeer(incoming.nodeName, host)
+        getAddPeer(NodeKey(incoming.nodeName, host))
 
         mutex.withLock {
             clusterState.merge(incoming)
@@ -85,8 +86,8 @@ class Membership(private val nodeKey: NodeKey) {
         return clusterState
     }
 
-    private suspend fun getAddPeer(nodeName: NodeName, host: Host): Peer =
-        peers[nodeName] ?: addPeer(NodeKey(nodeName, host))
+    private suspend fun getAddPeer(nodeKey: NodeKey): Peer =
+        peers[nodeKey.name] ?: addPeer(Peer(nodeKey))
 
     private fun buildRouteTable() {
         val nodeNames = clusterState.state
@@ -94,9 +95,8 @@ class Membership(private val nodeKey: NodeKey) {
         maglev = Maglev(nodeNames.toHashSet())
     }
 
-    private suspend fun addPeer(peerNodeKey: NodeKey): Peer = mutex.withLock {
-        val peer = Peer(peerNodeKey)
-        peers[peerNodeKey.name] = peer
+    private suspend fun addPeer(peer: Peer) = mutex.withLock {
+        peers[peer.name] = peer
         clusterState.add(peer.nodeKey)
         buildRouteTable()
 
@@ -105,8 +105,8 @@ class Membership(private val nodeKey: NodeKey) {
 
     private suspend fun removePeer(peer: Peer) = mutex.withLock {
         clusterState.remove(peer.nodeKey)
-        if (peers.contains(peer.nodeKey.name))
-            peers.remove(peer.nodeKey.name)
+        if (peers.contains(peer.name))
+            peers.remove(peer.name)
         buildRouteTable()
     }
 
@@ -115,7 +115,9 @@ class Membership(private val nodeKey: NodeKey) {
             .stateSync(clusterState, nodeKey.host)
             .getOrElse { return Result.failure(it) }
 
-        return Result.success(stateSync(peerMergedState, peer.nodeKey.host))
+        return Result.success(
+            stateSync(peerMergedState, peer.nodeKey.host)
+        )
     }
 
     private suspend fun failureDetectionLoop() {
@@ -143,8 +145,7 @@ class Membership(private val nodeKey: NodeKey) {
 
         val key = filtered.random()
         choices.add(key)
-        val nk = key.toNodeKey()
-        return getAddPeer(nk.name, nk.host)
+        return getAddPeer(key.toNodeKey())
     }
 
     private fun eligiblePeers(): List<NodeKeyRepr> {
@@ -171,10 +172,7 @@ class Membership(private val nodeKey: NodeKey) {
     private suspend fun gossip() {
         val keys = getSubgroup(GOSSIP_SUBGROUP_SIZE)
             .ifEmpty { return }
-        val gossipPeers = keys.map {
-            val nk = it.toNodeKey()
-            getAddPeer(nk.name, nk.host)
-        }
+        val gossipPeers = keys.map { getAddPeer(it.toNodeKey()) }
 
         logger.info("gossip - $gossipPeers")
 
@@ -191,10 +189,7 @@ class Membership(private val nodeKey: NodeKey) {
 
     private suspend fun investigate(suspect: Peer) {
         val keys = getSubgroup(FAILURE_DETECTION_SUBGROUP_SIZE)
-        val investigators = keys.map {
-            val nk = it.toNodeKey()
-            getAddPeer(nk.name, nk.host)
-        }
+        val investigators = keys.map { getAddPeer(it.toNodeKey()) }
 
         logger.info("investigate - suspect: ${suspect.nodeKey} - $investigators")
 
