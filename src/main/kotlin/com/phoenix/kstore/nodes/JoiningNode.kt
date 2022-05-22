@@ -1,5 +1,6 @@
-package com.phoenix.kstore
+package com.phoenix.kstore.nodes
 
+import com.phoenix.kstore.Server
 import kotlinx.coroutines.runBlocking
 
 fun main() {

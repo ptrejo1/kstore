@@ -1,6 +1,5 @@
 package com.phoenix.kstore
 
-import com.phoenix.kstore.servers.PeerServer
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKeyRepr
 import com.phoenix.kstore.utils.toNodeKey

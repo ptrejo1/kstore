@@ -1,10 +1,6 @@
-package com.phoenix.kstore.servers
+package com.phoenix.kstore
 
-import com.phoenix.kstore.LWWRegister
-import com.phoenix.kstore.Node
 import com.phoenix.kstore.grpc.*
-import com.phoenix.kstore.toRegisterSet
-import com.phoenix.kstore.toSetElements
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
 import com.phoenix.kstore.utils.getLogger

@@ -1,7 +1,6 @@
 package com.phoenix.kstore
 
 import com.phoenix.kstore.grpc.Ack
-import com.phoenix.kstore.servers.PeerClient
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
 import io.grpc.ManagedChannelBuilder
