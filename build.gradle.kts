@@ -37,6 +37,10 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.6.0")
 
     implementation(kotlin("stdlib-jdk8"))
+
+    implementation("io.netty:netty-all:4.1.77.Final")
+
+    implementation("com.github.ajalt.clikt:clikt:3.4.2")
 }
 
 tasks.test {
