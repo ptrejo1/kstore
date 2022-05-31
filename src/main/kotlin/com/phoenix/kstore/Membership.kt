@@ -31,24 +31,22 @@ class Membership(private val nodeKey: NodeKey) {
     private val mutex = Mutex()
     private var isStopped = false
     private var maglev = Maglev(hashSetOf())
-    private var jobs: List<Job>
     private val jobsScope = CoroutineScope(Dispatchers.Default)
+    private val jobs = listOf(
+        jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
+            failureDetectionLoop()
+        },
+        jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
+            gossipLoop()
+        },
+        jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
+            investigationLoop()
+        }
+    )
 
     init {
         runBlocking { clusterState.add(nodeKey) }
         buildRouteTable()
-
-        jobs = listOf(
-            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
-                failureDetectionLoop()
-            },
-            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
-                gossipLoop()
-            },
-            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
-                investigationLoop()
-            }
-        )
     }
 
     /** Initial state sync */

@@ -3,8 +3,8 @@ package com.phoenix.kstore
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKeyRepr
 import com.phoenix.kstore.utils.toNodeKey
-import kotlinx.coroutines.*
 import java.util.*
+import kotlin.concurrent.thread
 
 class Server(
     val hostname: String = "127.0.0.1",
@@ -20,22 +20,17 @@ class Server(
     private val node = Node(clientHost, p2pHost, nodeName)
     private val peerServer = PeerServer(peerToPeerPort, node)
     private val clientServer = ClientServer(clientHost.port)
-    private val jobsScope = CoroutineScope(Dispatchers.Default)
-    private val jobs: List<Job>
-
-    init {
-        jobs = listOf(
-            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
-                startMembership()
-            },
-            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
-                startPeerServer()
-            },
-            jobsScope.launch(Dispatchers.Default, CoroutineStart.LAZY) {
-                startClientServer()
-            },
-        )
-    }
+    private val threads = listOf(
+        thread(start = false) {
+            startMembership()
+        },
+        thread(start = false) {
+            startPeerServer()
+        },
+        thread(start = false) {
+            startClientServer()
+        },
+    )
 
     suspend fun start() {
         Runtime.getRuntime().addShutdownHook(Thread {
@@ -45,10 +40,11 @@ class Server(
         if (joinNodeKeyRepr != null)
             node.bootstrap(joinNodeKeyRepr.toNodeKey())
 
-        jobs.forEach { it.join() }
+        threads.forEach { it.start() }
     }
 
     private fun stop() {
+        // ClientServer will stop in its own
         node.membership.stop()
         peerServer.stop()
     }

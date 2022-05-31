@@ -55,6 +55,7 @@ class ClientServer(private val port: Int) {
             logger.info("ClientServer Started")
             channelFuture.channel().closeFuture().sync()
         } finally {
+            logger.info("ClientServer shutting down...")
             bossGroup.shutdownGracefully()
             workerGroup.shutdownGracefully()
         }
