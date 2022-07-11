@@ -1,18 +1,23 @@
 
-import com.phoenix.kstore.Maglev
-import kotlinx.coroutines.runBlocking
+import com.phoenix.kstore.storage.AVLTree
+import com.phoenix.kstore.storage.IndexEntry
 import kotlin.test.Test
 
 class ClockTests {
 
-    @Test
-    fun testClock() = runBlocking {
-        val m = Maglev(hashSetOf("123b1h231=1123123", "abc123"))
-        val oo = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
+    private fun make(s: String): IndexEntry =
+        IndexEntry(s.toByteArray(), 0)
 
-        for (o in oo) {
-            val l = m.lookup(o)
-            println(l)
-        }
+    @Test
+    fun testClock() {
+        val tree = AVLTree()
+        tree.insert(make("foo"))
+        tree.insert(make("bar"))
+        tree.insert(make("baz"))
+        tree.insert(make("qux"))
+
+        val f = make("bar")
+        val s = tree.search(f)
+        println(s)
     }
 }
