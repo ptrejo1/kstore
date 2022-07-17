@@ -15,8 +15,8 @@ class AVLTree {
 
     var root: Node? = null
 
-    fun search(key: IndexEntry, greaterThanOrEqual: Boolean = true): IndexEntry? =
-        search(root, key, greaterThanOrEqual)
+    fun search(key: ByteArray, greaterThanOrEqual: Boolean = true): IndexEntry? =
+        search(root, IndexEntry(key, 0), greaterThanOrEqual)
 
     fun insert(key: IndexEntry) {
         val node = Node(key)

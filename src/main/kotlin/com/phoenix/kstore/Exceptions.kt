@@ -5,3 +5,5 @@ class AbortTransactionException: Exception()
 class OverflowException: Exception()
 
 class ChecksumValidationException: Exception()
+
+class TableOverflowException: Exception()
