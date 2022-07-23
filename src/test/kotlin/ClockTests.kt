@@ -46,4 +46,10 @@ class ClockTests {
             println(e.key.toString(Charsets.UTF_8))
         }
     }
+
+    @Test
+    fun testRepl() {
+        println(Int.MAX_VALUE)
+        println(1024 shl 20)
+    }
 }

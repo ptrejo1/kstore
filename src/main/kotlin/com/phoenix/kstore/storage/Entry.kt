@@ -2,14 +2,18 @@ package com.phoenix.kstore.storage
 
 import com.phoenix.kstore.ChecksumValidationException
 import com.phoenix.kstore.Constants
+import com.phoenix.kstore.utils.toByteArray
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.zip.CRC32
 
-class Entry(val key: ByteArray, val value: ByteArray, private val meta: Int) {
+class Entry(val key: ByteArray, val value: ByteArray, val meta: Int) {
 
     companion object {
 
+        /**
+         * @throws [ChecksumValidationException]
+         */
         fun decode(buffer: ByteArray): Entry {
             val wrapped = ByteBuffer.wrap(buffer)
             val decodedMeta = wrapped.getInt(4)
@@ -31,20 +35,6 @@ class Entry(val key: ByteArray, val value: ByteArray, private val meta: Int) {
                 throw ChecksumValidationException()
 
             return Entry(decodedKey, decodedValue, decodedMeta)
-        }
-
-        private fun toByteArray(vararg items: Int): ByteArray {
-            val buffer = ByteBuffer.allocate(Int.SIZE_BYTES * items.size)
-            items.forEach { buffer.putInt(it) }
-
-            return buffer.array()
-        }
-
-        private fun toByteArray(vararg items: Long): ByteArray {
-            val buffer = ByteBuffer.allocate(Long.SIZE_BYTES * items.size)
-            items.forEach { buffer.putLong(it) }
-
-            return buffer.array()
         }
     }
 

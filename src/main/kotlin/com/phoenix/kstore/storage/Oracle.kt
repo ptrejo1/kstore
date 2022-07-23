@@ -14,7 +14,7 @@ class Oracle {
     val writeMutex = Mutex()
 
     private var nextTs = 1L
-    private val commits = hashMapOf<String, Long>()
+    private val commits = hashMapOf<ByteArray, Long>()
     private val mutex = Mutex()
 
     /**
@@ -29,6 +29,8 @@ class Oracle {
      * per ssi - abort transaction if there are any writes that have occurred since
      * this transaction started that affect keys read by this transaction, then keep
      * track of this transaction's writes for other transactions to do the same.
+     * @throws [AbortTransactionException]
+     * @throws [OverflowException]
      */
     suspend fun commitRequest(transaction: Transaction): Long = mutex.withLock {
         for (key in transaction.reads) {

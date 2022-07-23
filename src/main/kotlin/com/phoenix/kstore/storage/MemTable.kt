@@ -17,6 +17,9 @@ class MemTable(private val maxSize: Int) {
     private var entriesCount = 0
     private var offset = 0
 
+    /**
+     * @throws [TableOverflowException]
+     */
     fun put(entry: Entry) {
         val encoded = entry.encode()
         if (arena.size() + encoded.size > maxSize)
