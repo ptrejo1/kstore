@@ -1,7 +1,7 @@
 package com.phoenix.kstore.storage
 
-import com.github.ajalt.clikt.core.Abort
 import com.phoenix.kstore.AbortTransactionException
+import com.phoenix.kstore.OverflowException
 import com.phoenix.kstore.utils.toByteArray
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.withLock
@@ -51,7 +51,10 @@ class Transaction(private val store: Store) {
         return version.value
     }
 
-    fun write(key: ByteArray, value: ByteArray, meta: Int) {
+    /**
+     * Add pending write
+     */
+    fun write(key: ByteArray, value: ByteArray, meta: Int = EntryMeta.ALIVE.value) {
         writes[key] = Entry(key, value, meta)
     }
 
@@ -59,6 +62,8 @@ class Transaction(private val store: Store) {
      * Don't incur any overhead with oracle if no writes to process.
      * else, get a commit ts from oracle and apply to all writes then ship
      * over to db to persist
+     * @throws [AbortTransactionException]
+     * @throws [OverflowException]
      */
     suspend fun commit(): Transaction {
         if (writes.size == 0) {
@@ -73,6 +78,7 @@ class Transaction(private val store: Store) {
 
     /**
      * @throws [AbortTransactionException]
+     * @throws [OverflowException]
      */
     private suspend fun commitTransaction(): Transaction {
         try {

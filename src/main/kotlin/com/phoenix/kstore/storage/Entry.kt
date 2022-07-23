@@ -1,11 +1,14 @@
 package com.phoenix.kstore.storage
 
 import com.phoenix.kstore.ChecksumValidationException
-import com.phoenix.kstore.Constants
 import com.phoenix.kstore.utils.toByteArray
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.zip.CRC32
+
+enum class EntryMeta(val value: Int) {
+    ALIVE(0), TOMBSTONED(1)
+}
 
 class Entry(val key: ByteArray, val value: ByteArray, val meta: Int) {
 
@@ -38,7 +41,7 @@ class Entry(val key: ByteArray, val value: ByteArray, val meta: Int) {
         }
     }
 
-    fun isDeleted(): Boolean = (meta and Constants.TOMBSTONE_BIT) == 1
+    fun isDeleted(): Boolean = meta == EntryMeta.TOMBSTONED.value
 
     /**
      * byte array representation of log entry.

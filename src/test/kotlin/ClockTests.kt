@@ -1,8 +1,6 @@
 
-import com.phoenix.kstore.storage.AVLTree
-import com.phoenix.kstore.storage.Entry
-import com.phoenix.kstore.storage.IndexEntry
-import com.phoenix.kstore.storage.MemTable
+import com.phoenix.kstore.storage.*
+import kotlinx.coroutines.*
 import kotlin.test.Test
 
 class ClockTests {
@@ -49,7 +47,25 @@ class ClockTests {
 
     @Test
     fun testRepl() {
-        println(Int.MAX_VALUE)
-        println(1024 shl 20)
+        val s = Store()
+        runBlocking {
+            launch {
+                val r = s.get("foo".toByteArray())
+                println("r: ${r?.toString(Charsets.UTF_8)}")
+            }
+            launch { s.put("foo".toByteArray(), "bar".toByteArray()) }
+            launch { s.put("foo".toByteArray(), "qux".toByteArray()) }
+        }
+//        runBlocking {
+//            launch { s.put("foo".toByteArray(), "bar".toByteArray()) }
+//        }
+//        runBlocking {
+//            launch { s.put("foo".toByteArray(), "qux".toByteArray()) }
+//        }
+
+        val r = runBlocking {
+            s.get("foo".toByteArray())
+        }
+        println(r?.toString(Charsets.UTF_8))
     }
 }

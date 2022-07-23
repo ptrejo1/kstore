@@ -32,12 +32,13 @@ class AVLTree {
         val cmp = compare(key, root.key)
         if (cmp < 0) {
             if (greaterThanOrEqual) {
-                val leftCheck = (
-                    compare(key, root.left!!.key) > 0
+                val check = (
+                    root.left == null ||
+                    (compare(key, root.left!!.key) > 0
                     && root.left!!.maximum != null
-                    && compare(key, root.left!!.maximum!!.key) > 0
+                    && compare(key, root.left!!.maximum!!.key) > 0)
                 )
-                if (root.left == null || leftCheck)
+                if (check)
                     return root.key
             }
 
