@@ -1,6 +1,8 @@
 package com.phoenix.kstore
 
+import com.google.protobuf.kotlin.toByteString
 import com.phoenix.kstore.grpc.*
+import com.phoenix.kstore.grpc.BatchResponse
 import com.phoenix.kstore.utils.*
 import io.grpc.ManagedChannel
 import io.grpc.StatusException
@@ -27,10 +29,8 @@ class PeerClient(private val channel: ManagedChannel) : Closeable {
         PeerServerGrpcKt.PeerServerCoroutineStub(channel)
 
     suspend fun ping(): Result<Ack> {
-        val empty = Empty
-            .newBuilder()
+        val empty = Empty.newBuilder()
             .build()
-
         return execute { stub.ping(empty) }
     }
 
@@ -57,6 +57,37 @@ class PeerClient(private val channel: ManagedChannel) : Closeable {
             .build()
 
         return execute { stub.stateSync(state) }
+    }
+
+    suspend fun coordinate(request: BatchRequest): Result<BatchResponse> {
+        val requests = request.requests.map { req ->
+            when (req) {
+                is GetRequest -> {
+                    com.phoenix.kstore.grpc.GetRequest.newBuilder()
+                        .setKey(req.key.toByteString())
+                        .build()
+                }
+                is PutRequest -> {
+                    com.phoenix.kstore.grpc.PutRequest.newBuilder()
+                        .setKey(req.key.toByteString())
+                        .setValue(req.value.toByteString())
+                        .build()
+                }
+                else -> {
+                    com.phoenix.kstore.grpc.DeleteRequest.newBuilder()
+                        .setKey(req.key.toByteString())
+                        .build()
+                }
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val msg = com.phoenix.kstore.grpc.BatchRequest.newBuilder()
+            .setTable(request.table())
+            .addAllRequests(requests as List<com.phoenix.kstore.grpc.Request>)
+            .build()
+
+        return execute { stub.coordinate(msg) }
     }
 
     override fun close() {

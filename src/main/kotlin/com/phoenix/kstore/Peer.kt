@@ -1,6 +1,8 @@
 package com.phoenix.kstore
 
 import com.phoenix.kstore.grpc.Ack
+import com.phoenix.kstore.storage.TransactionInfo
+import com.phoenix.kstore.storage.TransactionStatus
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
 import io.grpc.ManagedChannelBuilder
@@ -34,6 +36,23 @@ class Peer(val nodeKey: NodeKey) {
         register.removeSet = incomingState.removeSetList.toRegisterSet()
 
         return Result.success(register)
+    }
+
+    suspend fun coordinate(request: BatchRequest): Result<BatchResponse> {
+        val response = peerClient.coordinate(request).getOrElse {
+            return Result.failure(it)
+        }
+        val info = TransactionInfo(
+            response.txn.txnId,
+            response.txn.readTs,
+            response.txn.commitTs,
+            TransactionStatus.valueOf(response.txn.status.name),
+            HashMap(response.txn.returningMap.entries
+                .associate { it.key.toByteArray() to it.value.toByteArray() }
+            )
+        )
+
+        return Result.success(BatchResponse(response.table, info))
     }
 
     override fun toString(): String {

@@ -10,6 +10,7 @@ service PeerServer {
   rpc Ping (Empty) returns (Ack) {}
   rpc PingRequest (PingReq) returns (Ack) {}
   rpc StateSync (State) returns (State) {}
+  rpc Coordinate (BatchRequest) returns (BatchResponse) {}
 }
 
 message SetElement {
@@ -33,4 +34,49 @@ message State {
   string peer_host = 2;
   repeated SetElement add_set = 3;
   repeated SetElement remove_set = 4;
+}
+
+message GetRequest {
+  bytes key = 1;
+}
+
+message PutRequest {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message DeleteRequest {
+  bytes key = 1;
+}
+
+message Request {
+  oneof value {
+    GetRequest get = 1;
+    PutRequest put = 2;
+    DeleteRequest delete = 3;
+  }
+}
+
+message BatchRequest {
+  string table = 1;
+  repeated Request requests = 2;
+}
+
+enum TransactionStatus {
+  PENDING = 0;
+  COMMITTED = 1;
+  ABORTED = 2;
+}
+
+message Transaction {
+  string txn_id = 1;
+  TransactionStatus status = 2;
+  map<string, string> returning = 3;
+  uint64 read_ts = 4;
+  optional uint64 commit_ts = 5;
+}
+
+message BatchResponse {
+  string table = 1;
+  Transaction txn = 2;
 }

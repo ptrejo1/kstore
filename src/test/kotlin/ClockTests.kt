@@ -68,4 +68,14 @@ class ClockTests {
         }
         println(r?.toString(Charsets.UTF_8))
     }
+
+    @Test
+    fun testRe() {
+        val requestKeyRegex = """^/([A-Za-z\d]+)/([A-Za-z\d]+)${'$'}""".toRegex()
+        val g = requestKeyRegex.matchEntire("/tab/123") ?: return
+        println(g.groups)
+
+        val f = com.phoenix.kstore.grpc.TransactionStatus.valueOf(TransactionStatus.COMMITTED.name)
+        println(f)
+    }
 }

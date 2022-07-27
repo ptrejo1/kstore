@@ -7,22 +7,33 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.withLock
 import java.nio.ByteBuffer
 import java.util.*
+import kotlin.collections.HashMap
 
 enum class TransactionStatus {
     PENDING, COMMITTED, ABORTED, NOOP
 }
 
+class TransactionInfo(
+    val transactionId: String,
+    val readTs: Long,
+    val commitTs: Long?,
+    val status: TransactionStatus,
+    val returning: HashMap<ByteArray, ByteArray>
+)
+
 class Transaction(private val store: Store) {
 
+    val id = UUID.randomUUID().toString()
     val reads = hashSetOf<ByteArray>()
     val readTs = runBlocking { store.oracle.readTs() }
     val writes = linkedMapOf<ByteArray, Entry>()
+    val returning = hashMapOf<ByteArray, ByteArray>()
     val isReadOnly: Boolean get() = writes.size == 0
 
-    private var commitTs: Long? = null
-    private val returning = hashMapOf<ByteArray, ByteArray?>()
-    private val id = UUID.randomUUID().toString()
-    private var status = TransactionStatus.PENDING
+    var commitTs: Long? = null
+        private set
+    var status = TransactionStatus.PENDING
+        private set
 
     /**
      * if this transaction has any writes for this key, return from there, else
@@ -66,7 +77,7 @@ class Transaction(private val store: Store) {
      * @throws [OverflowException]
      */
     suspend fun commit(): Transaction {
-        if (writes.size == 0) {
+        if (writes.isEmpty()) {
             status = TransactionStatus.NOOP
             return this
         }

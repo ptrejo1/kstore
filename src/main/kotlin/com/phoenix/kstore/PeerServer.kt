@@ -1,6 +1,8 @@
 package com.phoenix.kstore
 
 import com.phoenix.kstore.grpc.*
+import com.phoenix.kstore.grpc.BatchRequest
+import com.phoenix.kstore.grpc.BatchResponse
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
 import com.phoenix.kstore.utils.getLogger
@@ -44,8 +46,7 @@ private class PeerService(private val node: Node): PeerServerGrpcKt.PeerServerCo
         val nodeKey = NodeKey(request.peerName, request.peerHost)
         val ack = node.membership.pingRequest(nodeKey)
 
-        return Ack
-            .newBuilder()
+        return Ack.newBuilder()
             .setAck(ack)
             .build()
     }
@@ -56,12 +57,38 @@ private class PeerService(private val node: Node): PeerServerGrpcKt.PeerServerCo
         incoming.removeSet = request.removeSetList.toRegisterSet()
         val state = node.membership.stateSync(incoming, Host(request.peerHost))
 
-        return State
-            .newBuilder()
+        return State.newBuilder()
             .setNodeName(node.name)
             .setPeerHost(node.p2pHost.toString())
             .addAllAddSet(state.addSet.toSetElements())
             .addAllRemoveSet(state.removeSet.toSetElements())
+            .build()
+    }
+
+    override suspend fun coordinate(request: BatchRequest): BatchResponse {
+        val requests = request.requestsList.map { req ->
+            when (req.valueCase.name) {
+                "get" -> GetRequest(req.get.key.toByteArray())
+                "put" -> PutRequest(req.put.key.toByteArray(), req.put.value.toByteArray())
+                else -> DeleteRequest(req.delete.key.toByteArray())
+            }
+        }
+
+        val batchRequest = BatchRequest(requests)
+        val txn = node.coordinate(batchRequest)
+        val builder = Transaction.newBuilder()
+            .setTxnId(txn.id)
+            .setStatus(TransactionStatus.valueOf(txn.status.name))
+            .putAllReturning(
+                txn.returning.entries.associate { it.key.toString() to it.value.toString() }
+            )
+            .setReadTs(txn.readTs)
+        txn.commitTs?.let { builder.setCommitTs(it) }
+        val responseTxn = builder.build()
+
+        return BatchResponse.newBuilder()
+            .setTable(request.table)
+            .setTxn(responseTxn)
             .build()
     }
 }

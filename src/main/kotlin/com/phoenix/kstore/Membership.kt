@@ -67,6 +67,9 @@ class Membership(private val nodeKey: NodeKey) {
         logger.info("Membership Stop")
     }
 
+    fun lookupLeaseHolder(key: String): Peer? =
+        peers[maglev.lookup(key)]
+
     private fun buildRouteTable() {
         val nodeNames = clusterState.state
             .map { it.first.toNodeKey().name }

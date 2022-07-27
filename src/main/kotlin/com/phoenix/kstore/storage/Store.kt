@@ -43,8 +43,7 @@ class Store(private val maxTableSize: Int = 1024 shl 20) {
     fun write(entries: List<Entry>) {
         entries.forEach { memTable.put(it) }
     }
-
-    private suspend fun <R> withTransaction(operation: (transaction: Transaction) -> R): R {
+    suspend fun <R> withTransaction(operation: (transaction: Transaction) -> R): R {
         val txn = Transaction(this)
         val r = operation(txn)
         txn.commit()

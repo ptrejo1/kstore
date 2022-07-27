@@ -24,7 +24,7 @@ class Maglev(nodes: HashSet<NodeName>) {
     /**
      * Get node for key
      */
-    fun lookup(key: NodeName): NodeName {
+    fun lookup(key: String): NodeName {
         val hashed = abs(xx(MAGLEV_OFFSET_SEED).hashChars(key))
         return nodes[table[(hashed % m).toInt()]]
     }
