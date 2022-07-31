@@ -41,6 +41,8 @@ dependencies {
     implementation("io.netty:netty-all:4.1.77.Final")
 
     implementation("com.github.ajalt.clikt:clikt:3.4.2")
+
+    implementation("com.github.petitparser:petitparser-core:2.3.1")
 }
 
 tasks.test {

@@ -1,4 +1,5 @@
 
+import com.phoenix.kstore.KQL
 import com.phoenix.kstore.storage.*
 import kotlinx.coroutines.*
 import kotlin.test.Test
@@ -77,5 +78,14 @@ class ClockTests {
 
         val f = com.phoenix.kstore.grpc.TransactionStatus.valueOf(TransactionStatus.COMMITTED.name)
         println(f)
+    }
+
+    @Test
+    fun testParse() {
+//        KQL().parse("INFO;")
+//        KQL().parse("begin put /foo/ko foo get /foo/ko end;")
+//        KQL().parse("get /foo/ko;")
+//        KQL().parse("put /foo/ko foo;")
+//        KQL().parse("delete /foo/ko;")
     }
 }

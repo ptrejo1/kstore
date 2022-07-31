@@ -25,7 +25,7 @@ class Membership(private val nodeKey: NodeKey) {
     private val peers = HashMap<NodeName, Peer>()
     private val suspects = HashSet<NodeKeyRepr>()
     private val suspectQueue = ConcurrentLinkedQueue<Peer>()
-    private val clusterState = LWWRegister(nodeKey.name)
+    val clusterState = LWWRegister(nodeKey.name)
 
     private var choices = HashSet<NodeKeyRepr>()
     private val mutex = Mutex()

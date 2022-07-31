@@ -66,6 +66,7 @@ enum TransactionStatus {
   PENDING = 0;
   COMMITTED = 1;
   ABORTED = 2;
+  NOOP = 3;
 }
 
 message Transaction {

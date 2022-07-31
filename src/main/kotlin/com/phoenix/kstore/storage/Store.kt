@@ -3,10 +3,10 @@ package com.phoenix.kstore.storage
 import com.phoenix.kstore.AbortTransactionException
 import com.phoenix.kstore.OverflowException
 
-class Store(private val maxTableSize: Int = 1024 shl 20) {
+class Store(maxTableSize: Int = 1024 shl 20) {
 
     val oracle = Oracle()
-    val memTable = MemTable(maxTableSize)
+    private val memTable = MemTable(maxTableSize)
 
     /**
      * Get from store

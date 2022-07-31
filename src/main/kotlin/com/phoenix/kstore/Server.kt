@@ -19,7 +19,7 @@ class Server(
     private val p2pHost = Host(peerToPeerHostname, peerToPeerPort)
     private val node = Node(clientHost, p2pHost, nodeName)
     private val peerServer = PeerServer(peerToPeerPort, node)
-    private val clientServer = ClientServer(clientHost.port)
+    private val clientServer = ClientServer(clientHost.port, node)
     private val threads = listOf(
         thread(start = false) {
             startMembership()

@@ -21,10 +21,10 @@ class BatchRequest(val requests: List<Request>) {
 
         // match /table/pkey
         val requestKeyRegex = """^/([A-Za-z\d]+)/([A-Za-z\d]+)${'$'}""".toRegex()
-        val g = requestKeyRegex.matchEntire(requests.first().key.toString(Charsets.UTF_8))
+        val result = requestKeyRegex.matchEntire(requests.first().key.toString(Charsets.UTF_8))
             ?: throw InvalidRequestException("invalid key")
 
-        return g.groups[1]!!.value
+        return result.groups[1]!!.value
     }
 }
 

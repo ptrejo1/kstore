@@ -6,10 +6,9 @@ import com.phoenix.kstore.storage.Transaction
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
 import com.phoenix.kstore.utils.getLogger
-import com.phoenix.kstore.utils.toByteArray
 
 class Node(
-    val clientHost: Host,
+    private val clientHost: Host,
     val p2pHost: Host,
     val name: String,
 ) {
@@ -47,5 +46,18 @@ class Node(
 
         logger.info("done ${request.table()} ${transaction.returning}")
         return transaction
+    }
+
+    fun toMap(): HashMap<String, String> {
+        val data = hashMapOf(
+            "name" to name,
+            "p2pHost" to "$p2pHost",
+            "clientHost" to "$clientHost",
+        )
+        membership.clusterState.state.forEach { (k, v) ->
+            data[k] = "$v"
+        }
+
+        return data
     }
 }

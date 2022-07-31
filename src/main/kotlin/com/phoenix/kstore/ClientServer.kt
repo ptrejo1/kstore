@@ -11,10 +11,33 @@ import io.netty.handler.codec.string.StringEncoder
 import io.netty.handler.logging.LogLevel
 import io.netty.handler.logging.LoggingHandler
 
-class ClientServerHandler: SimpleChannelInboundHandler<String>() {
+class ClientServerHandler(private val kql: KQL): SimpleChannelInboundHandler<String>() {
 
     override fun channelRead0(ctx: ChannelHandlerContext?, msg: String?) {
-        ctx?.writeAndFlush("HI: $msg")
+        if (msg == null) {
+            ctx?.writeAndFlush("ERR: msg is null")
+            return
+        }
+
+        val response = kql.parse(msg)
+        if (response is MessageResponse) {
+            ctx?.writeAndFlush(response.message)
+            return
+        }
+
+        val batchResponse = (response as OperationResponse).batchResponse ?: run {
+            ctx?.writeAndFlush("ERR: batch response null")
+            return
+        }
+
+        if (batchResponse.transactionInfo.returning.isNotEmpty()) {
+            batchResponse.transactionInfo.returning.forEach { (k, v) ->
+                ctx?.write("${k.toString(Charsets.UTF_8)}: ${v.toString(Charsets.UTF_8)}")
+                ctx?.flush()
+            }
+        } else {
+            ctx?.writeAndFlush(batchResponse.transactionInfo.status.name)
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -24,11 +47,13 @@ class ClientServerHandler: SimpleChannelInboundHandler<String>() {
     }
 }
 
-class ClientServer(private val port: Int) {
+class ClientServer(private val port: Int, node: Node) {
 
     companion object {
         val logger by getLogger()
     }
+
+    private val kql = KQL(node)
 
     fun start() {
         val bossGroup = NioEventLoopGroup(1)
@@ -46,7 +71,7 @@ class ClientServer(private val port: Int) {
                         val pipeline = ch.pipeline()
                         pipeline.addLast(StringDecoder())
                         pipeline.addLast(StringEncoder())
-                        pipeline.addLast(ClientServerHandler())
+                        pipeline.addLast(ClientServerHandler(kql))
                     }
                 })
             }
