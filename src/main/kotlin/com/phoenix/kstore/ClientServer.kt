@@ -32,9 +32,9 @@ class ClientServerHandler(private val kql: KQL): SimpleChannelInboundHandler<Str
 
         if (batchResponse.transactionInfo.returning.isNotEmpty()) {
             batchResponse.transactionInfo.returning.forEach { (k, v) ->
-                ctx?.write("${k.toString(Charsets.UTF_8)}: ${v.toString(Charsets.UTF_8)}")
-                ctx?.flush()
+                ctx?.write("${k.array().toString(Charsets.UTF_8)}: ${v.toString(Charsets.UTF_8)}")
             }
+            ctx?.flush()
         } else {
             ctx?.writeAndFlush(batchResponse.transactionInfo.status.name)
         }

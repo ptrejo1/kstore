@@ -63,28 +63,36 @@ class PeerClient(private val channel: ManagedChannel) : Closeable {
         val requests = request.requests.map { req ->
             when (req) {
                 is GetRequest -> {
-                    com.phoenix.kstore.grpc.GetRequest.newBuilder()
+                    val get = com.phoenix.kstore.grpc.GetRequest.newBuilder()
                         .setKey(req.key.toByteString())
+                        .build()
+                    com.phoenix.kstore.grpc.Request.newBuilder()
+                        .setGet(get)
                         .build()
                 }
                 is PutRequest -> {
-                    com.phoenix.kstore.grpc.PutRequest.newBuilder()
+                    val put = com.phoenix.kstore.grpc.PutRequest.newBuilder()
                         .setKey(req.key.toByteString())
                         .setValue(req.value.toByteString())
                         .build()
+                    com.phoenix.kstore.grpc.Request.newBuilder()
+                        .setPut(put)
+                        .build()
                 }
                 else -> {
-                    com.phoenix.kstore.grpc.DeleteRequest.newBuilder()
+                    val delete = com.phoenix.kstore.grpc.DeleteRequest.newBuilder()
                         .setKey(req.key.toByteString())
+                        .build()
+                    com.phoenix.kstore.grpc.Request.newBuilder()
+                        .setDelete(delete)
                         .build()
                 }
             }
         }
 
-        @Suppress("UNCHECKED_CAST")
         val msg = com.phoenix.kstore.grpc.BatchRequest.newBuilder()
             .setTable(request.table())
-            .addAllRequests(requests as List<com.phoenix.kstore.grpc.Request>)
+            .addAllRequests(requests)
             .build()
 
         return execute { stub.coordinate(msg) }

@@ -68,8 +68,8 @@ private class PeerService(private val node: Node): PeerServerGrpcKt.PeerServerCo
     override suspend fun coordinate(request: BatchRequest): BatchResponse {
         val requests = request.requestsList.map { req ->
             when (req.valueCase.name) {
-                "get" -> GetRequest(req.get.key.toByteArray())
-                "put" -> PutRequest(req.put.key.toByteArray(), req.put.value.toByteArray())
+                "GET" -> GetRequest(req.get.key.toByteArray())
+                "PUT" -> PutRequest(req.put.key.toByteArray(), req.put.value.toByteArray())
                 else -> DeleteRequest(req.delete.key.toByteArray())
             }
         }
@@ -80,7 +80,9 @@ private class PeerService(private val node: Node): PeerServerGrpcKt.PeerServerCo
             .setTxnId(txn.id)
             .setStatus(TransactionStatus.valueOf(txn.status.name))
             .putAllReturning(
-                txn.returning.entries.associate { it.key.toString() to it.value.toString() }
+                txn.returning.entries.associate {
+                    it.key.array().toString(Charsets.UTF_8) to it.value.toString(Charsets.UTF_8)
+                }
             )
             .setReadTs(txn.readTs)
         txn.commitTs?.let { builder.setCommitTs(it) }

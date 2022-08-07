@@ -1,5 +1,9 @@
 
+import com.google.protobuf.kotlin.toByteStringUtf8
 import com.phoenix.kstore.KQL
+import com.phoenix.kstore.grpc.DeleteRequest
+import com.phoenix.kstore.grpc.GetRequest
+import com.phoenix.kstore.grpc.Request
 import com.phoenix.kstore.storage.*
 import kotlinx.coroutines.*
 import kotlin.test.Test
@@ -82,10 +86,11 @@ class ClockTests {
 
     @Test
     fun testParse() {
-//        KQL().parse("INFO;")
-//        KQL().parse("begin put /foo/ko foo get /foo/ko end;")
-//        KQL().parse("get /foo/ko;")
-//        KQL().parse("put /foo/ko foo;")
-//        KQL().parse("delete /foo/ko;")
+        val req = Request.newBuilder()
+        req.setGet(GetRequest.newBuilder().setKey("".toByteStringUtf8()))
+        req.setDelete(DeleteRequest.newBuilder().setKey("".toByteStringUtf8()))
+        val f = req.build()
+        println(f.hasDelete())
+        println(f.hasGet())
     }
 }

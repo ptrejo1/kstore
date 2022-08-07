@@ -4,6 +4,7 @@ import com.phoenix.kstore.AbortTransactionException
 import com.phoenix.kstore.OverflowException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.nio.ByteBuffer
 
 /**
  * Transaction status oracle. Enforces isolation level and transaction ordering.
@@ -14,7 +15,7 @@ class Oracle {
     val writeMutex = Mutex()
 
     private var nextTs = 1L
-    private val commits = hashMapOf<ByteArray, Long>()
+    private val commits = hashMapOf<ByteBuffer, Long>()
     private val mutex = Mutex()
 
     /**

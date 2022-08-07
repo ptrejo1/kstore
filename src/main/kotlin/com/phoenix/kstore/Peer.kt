@@ -6,6 +6,7 @@ import com.phoenix.kstore.storage.TransactionStatus
 import com.phoenix.kstore.utils.Host
 import com.phoenix.kstore.utils.NodeKey
 import io.grpc.ManagedChannelBuilder
+import java.nio.ByteBuffer
 
 class Peer(val nodeKey: NodeKey) {
 
@@ -48,7 +49,9 @@ class Peer(val nodeKey: NodeKey) {
             response.txn.commitTs,
             TransactionStatus.valueOf(response.txn.status.name),
             HashMap(response.txn.returningMap.entries
-                .associate { it.key.toByteArray() to it.value.toByteArray() }
+                .associate {
+                    ByteBuffer.wrap(it.key.toByteArray()) to it.value.toByteArray()
+                }
             )
         )
 

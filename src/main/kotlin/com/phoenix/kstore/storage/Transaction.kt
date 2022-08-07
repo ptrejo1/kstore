@@ -18,16 +18,16 @@ class TransactionInfo(
     val readTs: Long,
     val commitTs: Long?,
     val status: TransactionStatus,
-    val returning: HashMap<ByteArray, ByteArray>
+    val returning: HashMap<ByteBuffer, ByteArray>
 )
 
 class Transaction(private val store: Store) {
 
     val id = UUID.randomUUID().toString()
-    val reads = hashSetOf<ByteArray>()
+    val reads = hashSetOf<ByteBuffer>()
     val readTs = runBlocking { store.oracle.readTs() }
-    val writes = linkedMapOf<ByteArray, Entry>()
-    val returning = hashMapOf<ByteArray, ByteArray>()
+    val writes = linkedMapOf<ByteBuffer, Entry>()
+    val returning = hashMapOf<ByteBuffer, ByteArray>()
     val isReadOnly: Boolean get() = writes.size == 0
 
     var commitTs: Long? = null
@@ -40,25 +40,29 @@ class Transaction(private val store: Store) {
      * load the latest version from its snapshot of the db and track the read key
      */
     fun read(key: ByteArray): ByteArray? {
-        writes[key]?.also { return it.value }
+        val wrappedKey = ByteBuffer.wrap(key)
+        writes[wrappedKey]?.also {
+            returning[wrappedKey] = it.value
+            return it.value
+        }
 
-        reads.add(key)
+        reads.add(wrappedKey)
 
         val seek = encodeKeyWithTs(key, readTs)
         val version = store.read(seek)
 
         if (version == null) {
-            returning.remove(key)
+            returning.remove(wrappedKey)
             return null
         }
 
         val (versionKey, _) = decodeKeyWithTs(version.key)
         if (!key.contentEquals(versionKey) || version.isDeleted()) {
-            returning.remove(key)
+            returning.remove(wrappedKey)
             return null
         }
 
-        returning[key] = version.value
+        returning[wrappedKey] = version.value
         return version.value
     }
 
@@ -66,7 +70,7 @@ class Transaction(private val store: Store) {
      * Add pending write
      */
     fun write(key: ByteArray, value: ByteArray, meta: Int = EntryMeta.ALIVE.value) {
-        writes[key] = Entry(key, value, meta)
+        writes[ByteBuffer.wrap(key)] = Entry(key, value, meta)
     }
 
     /**
@@ -100,7 +104,7 @@ class Transaction(private val store: Store) {
         }
 
         val toWrite = writes.map { (key, write) ->
-            val keyWithTs = encodeKeyWithTs(key, commitTs!!)
+            val keyWithTs = encodeKeyWithTs(key.array(), commitTs!!)
             Entry(keyWithTs, write.value, write.meta)
         }
 
