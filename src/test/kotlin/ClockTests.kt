@@ -7,6 +7,7 @@ import com.phoenix.kstore.grpc.Request
 import com.phoenix.kstore.storage.*
 import kotlinx.coroutines.*
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class ClockTests {
 
@@ -16,24 +17,31 @@ class ClockTests {
     @Test
     fun testClock() {
         val tree = AVLTree()
-        tree.insert(make("foo"))
-        tree.insert(make("bar"))
-        tree.insert(make("baz"))
-        tree.insert(make("qux"))
+        tree.insert(make("foo1"))
+        tree.insert(make("foo2"))
+        tree.insert(make("foo5"))
+        tree.insert(make("foo6"))
 
-        val s = tree.search("bar".toByteArray())
-        println(s)
+        var s = tree.search("foo8".toByteArray(), ComparisonType.EQ)
+        var d = s?.key?.toString(Charsets.UTF_8)
+        assertEquals(d, null)
+        s = tree.search("foo1".toByteArray(), ComparisonType.EQ)
+        d = s?.key?.toString(Charsets.UTF_8)
+        assertEquals(d, "foo1")
 
-        val avg = mutableListOf<Long>()
-        for (i in 0 until 1000) {
-            val e = Entry("foobar".toByteArray(), "apple pie".toByteArray(), 1).encode()
+        s = tree.search("foo8".toByteArray(), ComparisonType.LTE)
+        d = s?.key?.toString(Charsets.UTF_8)
+        assertEquals(d, "foo6")
+        s = tree.search("foo6".toByteArray(), ComparisonType.LTE)
+        d = s?.key?.toString(Charsets.UTF_8)
+        assertEquals(d, "foo6")
 
-            val q = System.nanoTime()
-            Entry.decode(e)
-            val w = System.nanoTime() - q
-            avg.add(w / 100)
-        }
-        println(avg.average())
+        s = tree.search("foo3".toByteArray(), ComparisonType.GTE)
+        d = s?.key?.toString(Charsets.UTF_8)
+        assertEquals(d, "foo5")
+        s = tree.search("foo2".toByteArray(), ComparisonType.GTE)
+        d = s?.key?.toString(Charsets.UTF_8)
+        assertEquals(d, "foo2")
     }
 
     @Test

@@ -8,43 +8,60 @@ class Node(var key: IndexEntry) {
     var left: Node? = null
     var right: Node? = null
     var maximum: Node? = this
+    var minimum: Node? = this
     var height: Int = 1
 }
+
+enum class ComparisonType {
+    LTE, EQ, GTE
+}
+
 
 class AVLTree {
 
     var root: Node? = null
 
-    fun search(key: ByteArray, greaterThanOrEqual: Boolean = true): IndexEntry? =
-        search(root, IndexEntry(key, 0), greaterThanOrEqual)
+    /**
+     * BST search. if [comparisonType] is GTE, find exact match or closest node gte search key
+     * or if [comparisonType] is LTE, find exact match or closest node lte search key
+     * else EQ look for exact match.
+     */
+    fun search(key: ByteArray, comparisonType: ComparisonType = ComparisonType.EQ): IndexEntry? =
+        search(root, IndexEntry(key, 0), comparisonType)
 
     fun insert(key: IndexEntry) {
         val node = Node(key)
         root = insert(root, node)
     }
 
-    /**
-     * BST search. if [greaterThanOrEqual] is true, find exact match or closest node gte search key
-     */
-    private fun search(root: Node?, key: IndexEntry, greaterThanOrEqual: Boolean = true): IndexEntry? {
+    private fun search(root: Node?, key: IndexEntry, comparisonType: ComparisonType): IndexEntry? {
         if (root == null) return null
 
         val cmp = compare(key, root.key)
         if (cmp < 0) {
-            if (greaterThanOrEqual) {
+            if (comparisonType == ComparisonType.GTE) {
                 val check = (
                     root.left == null ||
                     (compare(key, root.left!!.key) > 0
                     && root.left!!.maximum != null
                     && compare(key, root.left!!.maximum!!.key) > 0)
                 )
-                if (check)
-                    return root.key
+                if (check) return root.key
             }
 
-            return search(root.left, key, greaterThanOrEqual)
+            return search(root.left, key, comparisonType)
         } else if ( cmp > 0) {
-            return search(root.right, key, greaterThanOrEqual)
+            if (comparisonType == ComparisonType.LTE) {
+                val check = (
+                    root.right == null ||
+                    (compare(key, root.right!!.key) < 0
+                    && root.right!!.minimum != null
+                    && compare(key, root.right!!.minimum!!.key) < 0)
+                )
+                if (check) return root.key
+            }
+
+            return search(root.right, key, comparisonType)
         }
 
         return root.key
@@ -60,6 +77,7 @@ class AVLTree {
         if (cmp == 0) {
             root.key = node.key
         } else if (cmp < 0) {
+            root.minimum = node
             root.left = insert(root.left, node)
         } else {
             root.maximum = node

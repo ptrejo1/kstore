@@ -32,7 +32,7 @@ class MemTable(private val maxSize: Int) {
     }
 
     fun get(key: ByteArray): Entry? {
-        val indexEntry = index.search(key, true) ?: return null
+        val indexEntry = index.search(key, ComparisonType.LTE) ?: return null
         val (entry, _) = decodeAtOffset(indexEntry.offset)
 
         return entry
